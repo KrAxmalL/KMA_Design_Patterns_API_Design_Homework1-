@@ -1,12 +1,8 @@
-import datetime as dt
+import datetime
 import json
 
 import requests
 from flask import Flask, jsonify, request
-
-API_TOKEN = "" # Initially left empty
-
-RSA_KEY = "" # Initially left empty
 
 app = Flask(__name__)
 
@@ -27,24 +23,6 @@ class InvalidUsage(Exception):
         return rv
 
 
-def generate_joke(exclude: str, limit: int = 1):
-    url_base_url = "https://api.api-ninjas.com"
-    limit = 1
-    url_api = "jokes"
-    url_api_version = "v1"
-
-    url = f"{url_base_url}/{url_api_version}/{url_api}?limit={limit}"
-
-    headers = {"X-Api-Key": RSA_KEY}
-
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == requests.codes.ok:
-        return json.loads(response.text)
-    else:
-        raise InvalidUsage(response.text, status_code=response.status_code)
-
-
 @app.errorhandler(InvalidUsage)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
@@ -54,35 +32,100 @@ def handle_invalid_usage(error):
 
 @app.route("/")
 def home_page():
-    return "<p><h2>KMA L2: python Saas.</h2></p>"
+    return "<p><h2>Design Patterns and API Design. Homework 1</h2></p>"
 
 
-@app.route("/content/api/v1/integration/generate", methods=["POST"])
-def joke_endpoint():
-    start_dt = dt.datetime.now()
+API_TOKEN = "Ka551ug7e8TXE5ZSvAz0"  # Initially left empty
+REQUESTER_NAME_FIELD = "requester_name"
+LOCATION_FIELD = "location"
+DATE_FIELD = "date"
+TIMESTAMP_FIELD = "timestamp"
+WEATHER_FIELD = "weather"
+
+
+@app.route("/api/v1/weather", methods=["POST"])
+def weather_endpoint():
     json_data = request.get_json()
 
-    if json_data.get("token") is None:
-        raise InvalidUsage("token is required", status_code=400)
+    validate_token(json_data)
 
-    token = json_data.get("token")
+    requester_name = extract_string(REQUESTER_NAME_FIELD, json_data)
+    location = extract_string(LOCATION_FIELD, json_data)
+    date = extract_string(DATE_FIELD, json_data)
 
-    if token != API_TOKEN:
-        raise InvalidUsage("wrong API token", status_code=403)
-
-    exclude = ""
-    if json_data.get("exclude"):
-        exclude = json_data.get("exclude")
-
-    joke = generate_joke(exclude)
-
-    end_dt = dt.datetime.now()
-
-    result = {
-        "event_start_datetime": start_dt.isoformat(),
-        "event_finished_datetime": end_dt.isoformat(),
-        "event_duration": str(end_dt - start_dt),
-        "joke": joke,
+    weather = get_weather(location, date)
+    return {
+        REQUESTER_NAME_FIELD: requester_name,
+        LOCATION_FIELD: location,
+        DATE_FIELD: date,
+        TIMESTAMP_FIELD: current_timestamp(),
+        WEATHER_FIELD: build_weather_response(weather)
     }
 
-    return result
+
+VISUAL_CROSSING_API_KEY = "KMLGJBL6SRQ8H3QSENAGLZG9A"  # Initially left empty
+VISUAL_CROSSING_BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
+VISUAL_CROSSING_KEY_QUERY_PARAM = "key"
+VISUAL_CROSSING_LANG_QUERY_PARAM = "lang"
+VISUAL_CROSSING_LANG_VALUE = "en"
+VISUAL_CROSSING_MEASUREMENT_UNIT_QUERY_PARAM = "unitGroup"
+VISUAL_CROSSING_MEASUREMENT_UNIT_VALUE = "metric"
+
+
+def get_weather(location, date):
+    url = f"{VISUAL_CROSSING_BASE_URL}/{location}/{date}" \
+          f"?{VISUAL_CROSSING_KEY_QUERY_PARAM}={VISUAL_CROSSING_API_KEY}" \
+          f"&{VISUAL_CROSSING_MEASUREMENT_UNIT_QUERY_PARAM}={VISUAL_CROSSING_MEASUREMENT_UNIT_VALUE}" \
+          f"&{VISUAL_CROSSING_LANG_QUERY_PARAM}={VISUAL_CROSSING_LANG_VALUE}"
+
+    response = requests.get(url)
+    if response.status_code == requests.codes.ok:
+        return json.loads(response.text)
+    else:
+        raise InvalidUsage(response.text, status_code=response.status_code)
+
+
+def validate_token(json_data):
+    token = json_data.get("token")
+    if token is None:
+        raise InvalidUsage("Field 'token' must be present", status_code=requests.codes.bad_request)
+    elif token != API_TOKEN:
+        raise InvalidUsage("Wrong API token", status_code=requests.codes.forbidden)
+
+
+def extract_string(key, json_data):
+    value = json_data.get(key)
+    if value is None or not value or not value.strip():
+        raise InvalidUsage(f"Field '{key}' must be present and not empty", status_code=requests.codes.bad_request)
+    return value
+
+
+def current_timestamp():
+    return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def build_weather_response(weather):
+    current_day = weather.get("days")[0]  # array of days contains only one value - for day from the request
+
+    # Units of measurement for different fields
+    # Temperature - degrees celcius
+    # Humidity and cloud coverage - percents
+    # Pressure - millibars
+    # Wind speed - kilometres per hour
+    # Sunrise and sunset time is specified in timezone of the requested location
+    return {
+        "description": current_day.get("description"),
+        "conditions": current_day.get("conditions"),
+        "average_temperature_c": current_day.get("temp"),
+        "average_temperature_feels_like_c": current_day.get("feelslike"),
+        "max_temperature_c": current_day.get("tempmax"),
+        "max_temperature_feels_like_c": current_day.get("feelslikemax"),
+        "min_temperature_c": current_day.get("tempmin"),
+        "min_temperature_feels_like_c": current_day.get("feelslikemin"),
+        "pressure_mb": current_day.get("pressure"),
+        "humidity_p": current_day.get("humidity"),
+        "cloud_coverage_p": current_day.get("cloudcover"),
+        "wind_speed_kph": current_day.get("windspeed"),
+        "sunrise_time": current_day.get("sunrise"),
+        "sunset_time": current_day.get("sunset")
+    }
