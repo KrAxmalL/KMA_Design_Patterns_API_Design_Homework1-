@@ -35,7 +35,7 @@ def home_page():
     return "<p><h2>Design Patterns and API Design. Homework 1</h2></p>"
 
 
-API_TOKEN = "Ka551ug7e8TXE5ZSvAz0"  # Initially left empty
+API_TOKEN = ""  # Initially left empty
 REQUESTER_NAME_FIELD = "requester_name"
 LOCATION_FIELD = "location"
 DATE_FIELD = "date"
@@ -63,7 +63,7 @@ def weather_endpoint():
     }
 
 
-VISUAL_CROSSING_API_KEY = "KMLGJBL6SRQ8H3QSENAGLZG9A"  # Initially left empty
+VISUAL_CROSSING_API_KEY = ""  # Initially left empty
 VISUAL_CROSSING_BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
 VISUAL_CROSSING_KEY_QUERY_PARAM = "key"
 VISUAL_CROSSING_LANG_QUERY_PARAM = "lang"
